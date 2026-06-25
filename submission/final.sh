@@ -185,7 +185,7 @@ echo "Using internal key: $INTERNAL_KEY at index $INDEX"
 # Build a descriptor with the exact index
 # If ranged, replace /* with the actual index; otherwise use as-is
 if echo "$DESCRIPTOR" | grep -q '/\*'; then
-  SIMPLE_DESCRIPTOR="tr($INTERNAL_KEY/0/$INDEX)"
+  SIMPLE_DESCRIPTOR="tr($INTERNAL_KEY/$INDEX)"
 else
   SIMPLE_DESCRIPTOR="tr($INTERNAL_KEY)"
 fi
