@@ -160,17 +160,34 @@ check_cmd "New taproot address generation"
 NEW_TAPROOT_ADDR=$(trim "$NEW_TAPROOT_ADDR")
 
 # Get the address info to extract the descriptor
+# parent_desc (v30) is ranged tr(); descriptor (v28) may be specific
 ADDR_INFO=$(bitcoin-cli -regtest -rpcwallet=btrustwallet getaddressinfo "$NEW_TAPROOT_ADDR")
 check_cmd "Getting address info"
 
-# Extract the internal key (inside tr(...)) from the descriptor
-INTERNAL_KEY=$(echo "$ADDR_INFO" | jq -r '.descriptor' | sed -n 's/.*tr(\([^)#]*\).*/\1/p')
+# Get the descriptor — parent_desc in v30, descriptor in v28
+DESCRIPTOR=$(echo "$ADDR_INFO" | jq -r '.parent_desc // .descriptor // empty')
+
+# Extract the internal key from the descriptor
+# Handle ranged: tr([fp/86h/1h/0h]key/0/*)#checksum
+INTERNAL_KEY=$(echo "$DESCRIPTOR" | sed -n 's/.*tr(\(.*\))\/[^\/]*\*).*/\1/p')
+# Fallback for non-ranged: tr([fp/86h/1h/0h]key/0/0)#checksum
+if [ -z "$INTERNAL_KEY" ]; then
+  INTERNAL_KEY=$(echo "$DESCRIPTOR" | sed -n 's/.*tr(\([^)]*\)).*/\1/p')
+fi
 check_cmd "Extracting key from descriptor"
 INTERNAL_KEY=$(trim "$INTERNAL_KEY")
 
-# Create a proper descriptor with just the key
-echo "Using internal key: $INTERNAL_KEY"
-SIMPLE_DESCRIPTOR="tr($INTERNAL_KEY)"
+# Get the exact derivation index from the HD key path
+INDEX=$(echo "$ADDR_INFO" | jq -r '.hdkeypath' | awk -F/ '{print $NF}')
+echo "Using internal key: $INTERNAL_KEY at index $INDEX"
+
+# Build a descriptor with the exact index
+# If ranged, replace /* with the actual index; otherwise use as-is
+if echo "$DESCRIPTOR" | grep -q '/\*'; then
+  SIMPLE_DESCRIPTOR="tr($INTERNAL_KEY/0/$INDEX)"
+else
+  SIMPLE_DESCRIPTOR="tr($INTERNAL_KEY)"
+fi
 echo "Simple descriptor: $SIMPLE_DESCRIPTOR"
 
 # Get a proper descriptor with checksum
