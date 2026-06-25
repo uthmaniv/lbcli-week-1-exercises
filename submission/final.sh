@@ -169,8 +169,9 @@ DESCRIPTOR=$(echo "$ADDR_INFO" | jq -r '.parent_desc // .descriptor // empty')
 
 # Extract the internal key from the descriptor
 # Handle ranged: tr([fp/86h/1h/0h]key/0/*)#checksum
-INTERNAL_KEY=$(echo "$DESCRIPTOR" | sed -n 's/.*tr(\(.*\))\/[^\/]*\*).*/\1/p')
-# Fallback for non-ranged: tr([fp/86h/1h/0h]key/0/0)#checksum
+# Capture everything before the trailing /0/* (the wildcard range)
+INTERNAL_KEY=$(echo "$DESCRIPTOR" | sed -n 's/.*tr(\(.*\)\/[^\/]*\*).*/\1/p')
+# Fallback for non-ranged: tr(hexkey)#checksum
 if [ -z "$INTERNAL_KEY" ]; then
   INTERNAL_KEY=$(echo "$DESCRIPTOR" | sed -n 's/.*tr(\([^)]*\)).*/\1/p')
 fi
